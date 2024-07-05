@@ -42,7 +42,7 @@
         }
 
         #login, #app {
-            background-color: #1e1e1e;
+            background-color: #171717;
             border-radius: 10px;
             padding: 30px;
             margin-top: 50px;
@@ -209,98 +209,119 @@
         </script>
     </div>
     <script>
-        const socket = io();
-        let currentUser;
-    
-        function register() {
-            const username = document.getElementById('username').value;
-            socket.emit('register', username);
-        }
-    
-        function sendFriendRequest(username) {
-            socket.emit('friend_request', username);
-        }
-    
-        function acceptFriendRequest(username) {
-            socket.emit('accept_friend', username);
-        }
-    
-        function sendMessage() {
-            const recipient = document.getElementById('recipient').value;
-            const message = document.getElementById('message').value;
-            socket.emit('private_message', { recipient, message });
-            displaySentMessage(currentUser, message); // Display sent message immediately
-            document.getElementById('message').value = '';
-        }
-    
-        function displaySentMessage(sender, message) {
-            const messages = document.getElementById('messages');
+    const socket = io();
+
+socket.on('connect', () => {
+    console.log('Connected to server');
+});
+
+socket.on('connect_error', (error) => {
+    console.log('Connection error:', error);
+});
+let currentUser;
+
+function register() {
+    const username = document.getElementById('username').value;
+    socket.emit('register', username);
+}
+
+function sendFriendRequest(username) {
+    console.log('Sending friend request to:', username);
+    socket.emit('friend_request', username);
+}
+
+function acceptFriendRequest(sender) {
+    socket.emit('accept_friend', sender);
+    removeFriendRequest(sender);
+}
+
+function removeFriendRequest(sender) {
+    const friendRequests = document.getElementById('friendRequests');
+    const requestToRemove = Array.from(friendRequests.children).find(li => li.textContent.includes(sender));
+    if (requestToRemove) {
+        friendRequests.removeChild(requestToRemove);
+    }
+}
+
+function sendMessage() {
+    const recipient = document.getElementById('recipient').value;
+    const message = document.getElementById('message').value;
+    socket.emit('private_message', { recipient, message });
+    displaySentMessage(currentUser, message);
+    document.getElementById('message').value = '';
+}
+
+function displaySentMessage(sender, message) {
+    const messages = document.getElementById('messages');
+    const li = document.createElement('li');
+    li.className = 'sent';
+    li.textContent = `You: ${message}`;
+    messages.appendChild(li);
+}
+
+socket.on('registration_success', (username) => {
+    currentUser = username;
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('user').textContent = username;
+});
+
+socket.on('registration_error', (error) => {
+    alert(error);
+});
+
+socket.on('user_list', (users) => {
+    const userList = document.getElementById('userList');
+    userList.innerHTML = '';
+    users.forEach(user => {
+        if (user !== currentUser) {
             const li = document.createElement('li');
-            li.className = 'sent'; // Add class to differentiate sent messages
-            li.textContent = `You: ${message}`;
-            messages.appendChild(li);
-        }
-    
-        socket.on('registration_success', (username) => {
-            currentUser = username;
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('app').style.display = 'block';
-            document.getElementById('user').textContent = username;
-        });
-    
-        socket.on('registration_error', (error) => {
-            alert(error);
-        });
-    
-        socket.on('user_list', (users) => {
-            const userList = document.getElementById('userList');
-            userList.innerHTML = '';
-            users.forEach(user => {
-                if (user !== currentUser) {
-                    const li = document.createElement('li');
-                    li.textContent = user;
-                    const button = document.createElement('button');
-                    button.textContent = 'Add Friend';
-                    button.onclick = () => sendFriendRequest(user);
-                    li.appendChild(button);
-                    userList.appendChild(li);
-                }
-            });
-        });
-    
-        socket.on('new_friend_request', (sender) => {
-            const friendRequests = document.getElementById('friendRequests');
-            const li = document.createElement('li');
-            
+            li.textContent = user;
             const button = document.createElement('button');
-            button.textContent = 'Accept';
-            button.onclick = () => acceptFriendRequest(sender);
-            li.textContent = `${sender} wants to be your friend`;
+            button.textContent = 'Add Friend';
+            button.onclick = () => sendFriendRequest(user);
             li.appendChild(button);
-            friendRequests.appendChild(li);
-        });
-    
-        socket.on('friend_accepted', (friend) => {
-            const friendList = document.getElementById('friendList');
-            const li = document.createElement('li');
-            li.textContent = friend;
-            friendList.appendChild(li);
-        });
-    
-        socket.on('new_private_message', ({ sender, message }) => {
-            displayReceivedMessage(sender, message); // Display received message
-        });
-    
-        function displayReceivedMessage(sender, message) {
-            const messages = document.getElementById('messages');
-            const li = document.createElement('li');
-            li.textContent = `${sender}: ${message}`;
-            messages.appendChild(li);
+            userList.appendChild(li);
         }
-    
-        socket.on('message_error', (error) => {
-            alert(error);
-        });
+    });
+});
+
+socket.on('new_friend_request', (sender) => {
+    const friendRequests = document.getElementById('friendRequests');
+   
+});
+socket.on('new_friend_request', (data) => {
+    const sender = data.from;
+    const friendRequests = document.getElementById('friendRequests');
+    const li = document.createElement('li');
+    li.textContent = `${sender} wants to be your friend `;
+    const button = document.createElement('button');
+    button.textContent = 'Accept';
+    button.onclick = () => acceptFriendRequest(sender);
+    li.appendChild(button);
+    friendRequests.appendChild(li);
+});
+socket.on('friend_accepted', (friend) => {
+    const friendList = document.getElementById('friendList');
+    const li = document.createElement('li');
+    li.textContent = friend;
+    friendList.appendChild(li);
+});
+
+socket.on('new_private_message', ({ sender, message }) => {
+    displayReceivedMessage(sender, message);
+});
+
+function displayReceivedMessage(sender, message) {
+    const messages = document.getElementById('messages');
+    const li = document.createElement('li');
+    li.textContent = `${sender}: ${message}`;
+    messages.appendChild(li);
+}
+
+socket.on('message_error', (error) => {
+    alert(error);
+});
     </script>
     
     <style>
