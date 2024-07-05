@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectChat - Private Messaging App</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: #1e1e1e;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #8e44ad;
+        }
+
+        #login, #app {
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 30px;
+            margin-top: 50px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h2, h3 {
+            color: #8e44ad;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"], input[type="password"], button {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        input[type="text"], input[type="password"] {
+            background-color: #2c2c2c;
+            color: #ffffff;
+        }
+
+        button {
+            background-color: #8e44ad;
+            color: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #6c3483;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #2c2c2c;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        #messages li {
+            background-color: #2c2c2c;
+            border-radius: 15px;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            max-width: 70%;
+        }
+
+        #messages li.sent {
+            background-color: #8e44ad;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        #search-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: #2c2c2c;
+            color: #ffffff;
+        }
+
+        @media screen and (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            #login, #app {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">ConnectChat</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="login">
+            <h2>Welcome to ConnectChat</h2>
+            <input type="text" id="username" placeholder="Enter your username">
+            <input type="password" id="password" placeholder="Enter your password">
+            <button onclick="register()">Join Now</button>
+            <button onclick="login()">Login</button>
+        </div>
+
+        <div id="app" style="display: none;">
+            <h2>Welcome, <span id="user"></span></h2>
+            
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Search for users...">
+                <ul id="search-results"></ul>
+            </div>
+
+            <h3>Users</h3>
+            <ul id="userList"></ul>
+
+            <h3>Friend Requests</h3>
+            <ul id="friendRequests"></ul>
+
+            <h3>Friends</h3>
+            <ul id="friendList"></ul>
+
+            <h3>Messages</h3>
+            <div class="chat-container">
+                <ul id="messages"></ul>
+            </div>
+
+            <input type="text" id="recipient" placeholder="Recipient">
+            <input type="text" id="message" placeholder="Type your message...">
+            <button onclick="sendMessage()">Send <i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentUser;
+
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            socket.emit('register', username);
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            socket.emit('login', username);
+        }
+
+        function sendFriendRequest(username) {
+            socket.emit('friend_request', username);
+        }
+
+        function acceptFriendRequest(username) {
+            socket.emit('accept_friend', username);
+        }
+
+        function sendMessage() {
+            const recipient = document.getElementById('recipient').value;
+            const message = document.getElementById('message').value;
+            socket.emit('private_message', { recipient, message });
+            document.getElementById('message').value = '';
+        }
+
+        socket.on('registration_success', (username) => {
+            currentUser = username;
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            document.getElementById('user').textContent = username;
+            socket.emit('get_users');
+        });
+
+        socket.on('login_success', (username) => {
+            currentUser = username;
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            document.getElementById('user').textContent = username;
+            socket.emit('get_users');
+        });
+
+        socket.on('registration_error', (error) => {
+            alert(error);
+        });
+
+        socket.on('login_error', (error) => {
+            alert(error);
+        });
+
+        socket.on('user_list', (users) => {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            users.forEach(user => {
+                if (user !== currentUser) {
+                    const li = document.createElement('li');
+                    li.textContent = user;
+                    const button = document.createElement('button');
+                    button.textContent = 'Add Friend';
+                    button.onclick = () => sendFriendRequest(user);
+                    li.appendChild(button);
+                    userList.appendChild(li);
+                }
+            });
+        });
+
+        socket.on('new_friend_request', ({ from }) => {
+            const friendRequests = document.getElementById('friendRequests');
+            const li = document.createElement('li');
+            li.textContent = `${from} wants to be your friend`;
+            const button = document.createElement('button');
+            button.textContent = 'Accept';
+            button.onclick = () => acceptFriendRequest(from);
+            li.appendChild(button);
+            friendRequests.appendChild(li);
+        });
+
+        socket.on('friend_accepted', (friend) => {
+            const friendList = document.getElementById('friendList');
+            const li = document.createElement('li');
+            li.textContent = friend;
+            friendList.appendChild(li);
+        });
+
+        socket.on('new_private_message', ({ sender, message }) => {
+            const messages = document.getElementById('messages');
+            const li = document.createElement('li');
+            li.textContent = `${sender}: ${message}`;
+            messages.appendChild(li);
+        });
+
+        socket.on('message_error', (error) => {
+            alert(error);
+        });
+    </script>
+</body>
+</html>
